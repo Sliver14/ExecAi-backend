@@ -110,9 +110,9 @@ async def webhook(
         }
 
         result = await agent.process_message(
-            text=text,
-            user_context=user_context,
-            user_id=user.id,
+            text,
+            user_context,
+            user.id,
         )
 
         response_text = result.get(
