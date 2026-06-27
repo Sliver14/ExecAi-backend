@@ -5,7 +5,10 @@ from uuid import UUID
 import json
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_classic.agents import create_tool_calling_agent, AgentExecutor
+from langchain.agents import (
+    AgentExecutor,
+    create_tool_calling_agent,
+)
 from langchain_core.prompts import ChatPromptTemplate
 from app.agents.tools import ALL_TOOLS
 from app.agents.prompts import INTENT_EXTRACTION_PROMPT
@@ -25,15 +28,22 @@ class ExecAIAgent:
         
         # Tool calling agent setup
         self.tools = ALL_TOOLS
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are ExecAI, a professional AI executive assistant.
-Be concise, actionable, and helpful. Always confirm actions clearly.
-The user's ID is provided in the user context under 'user_id'. You MUST use this user_id whenever calling tools.
-Use tools when appropriate to manage tasks, projects, and events."""),
-            ("placeholder", "{chat_history}"),
-            ("human", "{input}"),
-            ("placeholder", "{agent_scratchpad}"),
-        ])
+self.prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are ExecAI, a professional AI executive assistant.
+
+Be concise.
+Always use tools whenever appropriate.
+Always use the supplied user_id when invoking tools.
+""",
+        ),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("human", "{input}"),
+        MessagesPlaceholder(variable_name="agent_scratchpad"),
+    ]
+)
         
         self.agent = create_tool_calling_agent(self.llm, self.tools, self.prompt)
         self.agent_executor = AgentExecutor(agent=self.agent, tools=self.tools, verbose=True)
