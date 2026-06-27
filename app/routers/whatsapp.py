@@ -19,9 +19,9 @@ async def verify_webhook(request: Request):
     token = request.query_params.get("hub.verify_token")
     challenge = request.query_params.get("hub.challenge")
     
-    settings = get_settings()  # TODO: import properly
+    settings = get_settings()
     
-    if mode == "subscribe" and token == settings.WHATSAPP_TOKEN:
+    if mode == "subscribe" and token == settings.WHATSAPP_VERIFY_TOKEN:
         return int(challenge)
     raise HTTPException(status_code=403, detail="Invalid verification token")
 
@@ -46,13 +46,6 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
         
         # Get or create user
         user = get_or_create_user(db, from_phone)
-        
-        # Prepare services
-        services = {
-            "task": TaskService(db),
-            "project": ProjectService(db),
-            "event": EventService(db),
-        }
         
         # Initialize agent
         agent = ExecAIAgent()
@@ -87,3 +80,4 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"Error processing webhook: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+

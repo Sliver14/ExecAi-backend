@@ -10,12 +10,23 @@ connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,
-    pool_recycle=300,
-    connect_args=connect_args,
-)
+# Neon/PostgreSQL production recommendations: pool_pre_ping=True, pool_recycle=300, reasonable pool sizing
+# NullPool is typically used if we don't want pooling, but let's use a standard QueuePool for regular DB connections with Neon.
+if settings.DATABASE_URL.startswith("postgresql"):
+    engine = create_engine(
+        settings.DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        pool_size=10,
+        max_overflow=20,
+    )
+else:
+    engine = create_engine(
+        settings.DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        connect_args=connect_args,
+    )
 
 SessionLocal = sessionmaker(
     autocommit=False,

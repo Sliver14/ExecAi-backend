@@ -8,6 +8,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.core.config import get_settings
 from app.db.base import Base
+# Make sure models are loaded to register them on Base.metadata
+import app.models
 
 config = context.config
 settings = get_settings()
@@ -32,3 +34,4 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
+

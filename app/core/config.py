@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from typing import Optional
 
 class Settings(BaseSettings):
     # App
@@ -7,16 +8,16 @@ class Settings(BaseSettings):
     VERSION: str = "0.1.0"
     
     # Database
-    DATABASE_URL: str = "sqlite:///./execai.db"
+    DATABASE_URL: str
     
     # OpenAI
-    OPENAI_API_KEY: str = "placeholder_openai_key"
+    OPENAI_API_KEY: str
     
     # WhatsApp Business API
-    WHATSAPP_ACCESS_TOKEN: str = "placeholder_access_token"
-    WHATSAPP_PHONE_NUMBER_ID: str = "placeholder_phone_id"
-    WHATSAPP_WEBHOOK_SECRET: str = "placeholder_webhook_secret"  # For verifying webhooks
-    WHATSAPP_TOKEN: str = "placeholder_verify_token"  # For webhook verification challenge
+    WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None
+    WHATSAPP_ACCESS_TOKEN: Optional[str] = None
+    WHATSAPP_WEBHOOK_SECRET: Optional[str] = None  # For verifying webhook payload signatures if needed
+    WHATSAPP_VERIFY_TOKEN: Optional[str] = None  # For webhook verification challenge
     
     # Environment
     ENVIRONMENT: str = "development"
@@ -29,4 +30,5 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     return Settings()
+
 
