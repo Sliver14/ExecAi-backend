@@ -86,8 +86,10 @@ credentials.json
 # AI Models
 # =========================
 models/
+!app/models/
 checkpoints/
 weights/
+
 *.pt
 *.pth
 *.ckpt
