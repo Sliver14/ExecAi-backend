@@ -26,12 +26,18 @@ class ReviewService:
             Project.deleted_at.is_(None)
         ).all()
 
+        total_tasks = self.db.query(Task).filter(
+            Task.user_id == user_id,
+            Task.deleted_at.is_(None)
+        ).count()
+
         review = WeeklyReview(
             user_id=user_id,
-            week_period=week_start.date(),
+            week_start=week_start.date(),
             completed_tasks=len(completed_tasks),
-            outstanding_tasks=0,  # TODO: calculate
-            insights="AI-generated insights will go here.",
+            total_tasks=total_tasks,
+            insights={"details": "AI-generated insights will go here."},
+            reflection={},
             planned_priorities=[]
         )
         self.db.add(review)
@@ -44,3 +50,4 @@ class ReviewService:
             "active_projects": len(active_projects),
             "insights": review.insights
         }
+
