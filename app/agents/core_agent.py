@@ -146,6 +146,80 @@ class ExecAIAgent:
         # Prepare context data
         context_str = json.dumps(user_context, default=str)
         
+        # -----------------
+        # INTERCEPT DESTRUCTIVE ACTIONS BEFORE TOOL INVOCATION
+        # If user did not say "yes" confirming it yet, we check the query for delete tasks/events intents
+        # and store a PendingConfirmation in the database.
+        # -----------------
+        from datetime import datetime, timedelta, timezone as dt_timezone
+        from app.models.confirmation import PendingConfirmation
+        from app.models.task import Task
+        from app.models.event import Event
+        
+        # Simple keywords parsing check to block direct execution
+        # Check if user asks to delete a task or calendar event
+        has_delete = any(k in lower_msg for k in ["delete", "remove", "cancel", "erase"])
+        has_task = "task" in lower_msg
+        has_event = any(k in lower_msg for k in ["event", "meeting", "calendar"])
+        
+        if has_delete and not is_confirmation:
+            with SessionLocal() as db:
+                action = None
+                res_id = None
+                res_title = None
+                
+                if has_task:
+                    action = "delete_task"
+                    # Try finding a task matching text
+                    words = [w for w in message.split() if w.lower() not in ["delete", "my", "task", "remove", "cancel", "erase"]]
+                    search_term = " ".join(words)
+                    task = db.query(Task).filter(
+                        Task.user_id == user_id, 
+                        Task.title.ilike(f"%{search_term}%"),
+                        Task.deleted_at.is_(None)
+                    ).first()
+                    if task:
+                        res_id = str(task.id)
+                        res_title = task.title
+                elif has_event:
+                    action = "delete_event"
+                    words = [w for w in message.split() if w.lower() not in ["delete", "my", "event", "meeting", "calendar", "tomorrow", "tomorrow's"]]
+                    search_term = " ".join(words)
+                    event = db.query(Event).filter(
+                        Event.user_id == user_id,
+                        Event.title.ilike(f"%{search_term}%"),
+                        Event.deleted_at.is_(None)
+                    ).first()
+                    if event:
+                        res_id = str(event.id)
+                        res_title = event.title
+                        
+                if action and res_id:
+                    # Check if there is already a pending confirmation to avoid duplication
+                    db.query(PendingConfirmation).filter(
+                        PendingConfirmation.whatsapp_phone == user_context.get("whatsapp_phone"),
+                        PendingConfirmation.action == action,
+                        PendingConfirmation.resource_id == res_id
+                    ).delete()
+                    
+                    pending = PendingConfirmation(
+                        whatsapp_phone=user_context.get("whatsapp_phone"),
+                        action=action,
+                        resource_id=res_id,
+                        resource_title=res_title,
+                        expires_at=datetime.now(dt_timezone.utc) + timedelta(minutes=10)
+                    )
+                    db.add(pending)
+                    db.commit()
+                    
+                    output_msg = f"[CONFIRMATION_REQUIRED] Action: {action} | ID: {res_id} | Title: {res_title}"
+                    return {
+                        "response": output_msg,
+                        "action_taken": False,
+                        "confirmation_required": True,
+                        "raw_result": {"output": output_msg}
+                    }
+
         input_data = {
             "input": f"User context: {context_str}\nUser ID: {user_id}\n{local_meta}\n\nMessage: {message}",
             "chat_history": conversation_history
@@ -191,6 +265,7 @@ class ExecAIAgent:
                     "action_taken": False,
                     "error": f"Original: {e}, Fallback: {fe}"
                 }
+
 
     async def _fallback_structured(self, message: str, user_context: Dict, history: List) -> Dict:
         """Fallback method using structured output."""

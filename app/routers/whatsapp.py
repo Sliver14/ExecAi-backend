@@ -65,42 +65,97 @@ async def webhook(
             return {"status": "ignored"}
 
         message = messages[0]
-
         from_phone = message.get("from")
+        
+        # Check if this is an interactive button reply
+        is_button_reply = False
+        button_id = None
+        text = ""
 
-        # Ignore non-text messages
-        if message.get("type") != "text":
-            logger.info("Ignoring non-text WhatsApp message.")
-            return {"status": "ignored"}
-
-        text = message.get("text", {}).get("body", "")
+        if message.get("type") == "interactive":
+            interactive = message.get("interactive", {})
+            if interactive.get("type") == "button_reply":
+                is_button_reply = True
+                button_reply = interactive.get("button_reply", {})
+                button_id = button_reply.get("id")
+                text = button_reply.get("title", "")
+        elif message.get("type") == "text":
+            text = message.get("text", {}).get("body", "")
 
         if not from_phone or not text:
             logger.warning("Invalid WhatsApp payload.")
             return {"status": "ignored"}
 
         logger.info(
-            "Received message from %s: %s",
+            "Received message from %s (button_reply: %s): %s",
             from_phone,
+            is_button_reply,
             text,
         )
-
-        # ---------------------------------
-        # Load or create user
-        # ---------------------------------
 
         user = get_or_create_user(db, from_phone)
 
         # ---------------------------------
-        # AI Agent
+        # Handle Interactive Button Callbacks
         # ---------------------------------
+        from app.models.confirmation import PendingConfirmation
+        from datetime import datetime, timezone as dt_timezone
+        
+        if is_button_reply and button_id:
+            # Format expected: confirm_delete_task:<id> or cancel_delete_task:<id>
+            parts = button_id.split(":")
+            action_type = parts[0]
+            resource_id = parts[1] if len(parts) > 1 else None
+            
+            # Find matching pending confirmation
+            pending = db.query(PendingConfirmation).filter(
+                PendingConfirmation.whatsapp_phone == from_phone,
+                PendingConfirmation.resource_id == resource_id
+            ).first()
+            
+            if not pending:
+                await send_whatsapp_message(from_phone, "This confirmation request has expired or is invalid.")
+                return {"status": "processed"}
+                
+            # Verify expiry
+            if datetime.now(dt_timezone.utc) > pending.expires_at.replace(tzinfo=dt_timezone.utc):
+                db.delete(pending)
+                db.commit()
+                await send_whatsapp_message(from_phone, "This confirmation request has expired (10 minute limit).")
+                return {"status": "processed"}
+                
+            if "confirm_" in action_type:
+                # Execute the tool
+                from app.agents.tools import delete_task_tool, delete_event_tool
+                if pending.action == "delete_task":
+                    result_msg = await delete_task_tool._run(user_id=user.id, task_identifier=resource_id)
+                elif pending.action == "delete_event":
+                    result_msg = await delete_event_tool._run(user_id=user.id, event_identifier=resource_id)
+                else:
+                    result_msg = "Unknown action confirmed."
+                    
+                db.delete(pending)
+                db.commit()
+                await send_whatsapp_message(from_phone, result_msg)
+                return {"status": "processed"}
+            else:
+                # Cancelled! Discard action
+                db.delete(pending)
+                db.commit()
+                await send_whatsapp_message(from_phone, "Okay, I won't delete it.")
+                return {"status": "processed"}
 
+        # ---------------------------------
+        # AI Agent Pipeline
+        # ---------------------------------
         agent = ExecAIAgent()
 
         user_context = {
             "user_id": str(user.id),
+            "whatsapp_phone": from_phone,
             "name": user.name,
             "role": user.role,
+            "timezone": user.timezone,
             "work_hours": (
                 f"{user.work_start_time} - {user.work_end_time}"
                 if user.work_start_time
@@ -125,40 +180,56 @@ async def webhook(
         # ---------------------------------
         # Send WhatsApp Reply
         # ---------------------------------
-
-        success = await send_whatsapp_message(
-            from_phone,
-            response_text,
-        )
-
-        if success:
-            logger.info(
-                "WhatsApp reply successfully sent to %s",
-                from_phone,
-            )
+        if result.get("confirmation_required") and "[CONFIRMATION_REQUIRED]" in response_text:
+            # Parse interception details: Action: delete_task | ID: <id> | Title: <title>
+            parts = response_text.replace("[CONFIRMATION_REQUIRED] ", "").split(" | ")
+            action_tag = parts[0].split(": ")[1]
+            resource_id = parts[1].split(": ")[1]
+            resource_title = parts[2].split(": ")[1]
+            
+            body_text = f"Delete \"{resource_title}\"?"
+            
+            buttons = [
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": f"confirm_{action_tag}:{resource_id}",
+                        "title": "Yes"
+                    }
+                },
+                {
+                    "type": "reply",
+                    "reply": {
+                        "id": f"cancel_{action_tag}:{resource_id}",
+                        "title": "Cancel"
+                    }
+                }
+            ]
+            from app.utils.whatsapp_client import send_whatsapp_interactive_buttons
+            await send_whatsapp_interactive_buttons(from_phone, body_text, buttons)
         else:
-            logger.error(
-                "Failed sending WhatsApp reply to %s",
+            success = await send_whatsapp_message(
                 from_phone,
+                response_text,
             )
+
+            if success:
+                logger.info(
+                    "WhatsApp reply successfully sent to %s",
+                    from_phone,
+                )
+            else:
+                logger.error(
+                    "Failed sending WhatsApp reply to %s",
+                    from_phone,
+                )
 
         return {"status": "processed"}
 
-    # except Exception:
-    #     logger.exception("Unhandled error while processing webhook.")
-
-    #     raise HTTPException(
-    #         status_code=500,
-    #         detail="Internal server error",
-    #     )
-
     except Exception as e:
         import traceback
-
         traceback.print_exc()
-
         logger.exception(e)
-
         raise HTTPException(
             status_code=500,
             detail=str(e),
