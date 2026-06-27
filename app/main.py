@@ -33,6 +33,7 @@ app = FastAPI(
     title="ExecAI",
     version="1.0.0",
     lifespan=lifespan,
+    redirect_slashes=False,
 )
 
 # Global custom logging & timing middleware

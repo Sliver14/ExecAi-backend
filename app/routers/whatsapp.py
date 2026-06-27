@@ -39,6 +39,7 @@ async def verify_webhook(request: Request):
 # Receive WhatsApp Messages
 # -------------------------
 @router.post("")
+@router.post("/")
 async def webhook(
     request: Request,
     db: Session = Depends(get_db),
