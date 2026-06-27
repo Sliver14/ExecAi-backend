@@ -104,9 +104,16 @@ async def ready():
         )
 
 from app.routers.whatsapp import router as whatsapp_router
+from app.routers.oauth import router as oauth_router
 
 app.include_router(
     whatsapp_router,
     prefix="/webhook",
     tags=["WhatsApp"],
+)
+
+app.include_router(
+    oauth_router,
+    prefix="/oauth/google",
+    tags=["Google OAuth"],
 )

@@ -17,6 +17,8 @@ class User(Base):
     work_end_time = Column(Time)
     checkin_preference = Column(SQLEnum('morning', 'evening', 'none', name='checkin_preference'), default='morning')
     google_calendar_connected = Column(Boolean, default=False)
+    google_access_token = Column(String, nullable=True)
+    google_refresh_token = Column(String, nullable=True)
     top_priorities = Column(JSON)
     subscription_status = Column(SQLEnum('trial', 'active', 'expired', 'cancelled', name='subscription_status'), default='trial')
     trial_ends_at = Column(DateTime(timezone=True), default=lambda: datetime.utcnow() + timedelta(days=14))
@@ -28,3 +30,4 @@ class User(Base):
     tasks = relationship("Task", back_populates="user")
     events = relationship("Event", back_populates="user")
     reviews = relationship("WeeklyReview", back_populates="user")
+
