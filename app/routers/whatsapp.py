@@ -144,10 +144,22 @@ async def webhook(
 
         return {"status": "processed"}
 
-    except Exception:
-        logger.exception("Unhandled error while processing webhook.")
+    # except Exception:
+    #     logger.exception("Unhandled error while processing webhook.")
+
+    #     raise HTTPException(
+    #         status_code=500,
+    #         detail="Internal server error",
+    #     )
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+
+        logger.exception(e)
 
         raise HTTPException(
             status_code=500,
-            detail="Internal server error",
+            detail=str(e),
         )
