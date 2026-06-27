@@ -1,0 +1,115 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python Environment Variables
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# =========================
+# Node.js / Next.js
+# =========================
+node_modules/
+.next/
+out/
+.vercel/
+
+# npm / yarn / pnpm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# IDEs
+# =========================
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# =========================
+# Render
+# =========================
+.render/
+
+# =========================
+# Database
+# =========================
+*.sqlite3
+*.db
+
+# =========================
+# Secrets
+# =========================
+*.pem
+*.key
+*.crt
+secrets.json
+credentials.json
+
+# =========================
+# AI Models
+# =========================
+models/
+checkpoints/
+weights/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+
+# =========================
+# Vector Databases
+# =========================
+chroma/
+chromadb/
+faiss_index/
+*.faiss
+
+# =========================
+# Uploads
+# =========================
+uploads/
+tmp/
+temp/
+
+# =========================
+# Misc
+# =========================
+coverage/
